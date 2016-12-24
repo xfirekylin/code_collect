@@ -325,7 +325,7 @@ int md5_file(char *filename, unsigned char *md5_result)
     return 1;
 }
 
-char md5_str[17];
+char md5_str[33];
 char file_name[255];
 #define SENT_FILE_NAME "data.txt"
 int main(int argc, char**argv)  
@@ -409,12 +409,26 @@ int main(int argc, char**argv)
             }  
             printf("%s\n",buf);  
 
-            if (0 == strncmp(buf, "DL_HEADINFO", strlen("DL_HEADINFO")))
+            if (NULL != strstr(buf, "DL_HEADINFO"))
             {
-                int len = 51;
+                int len = 56;
+                int l=0;
                 FILE *fp;
-               
+                
+                memset(buf, 0, BUFLEN);
+                strcpy(buf,"HTTP/1.1 200 OK\r\nServer: nginx/1.1.19\r\nDate: Thu, 17 Nov 2016 09:50:34 GMT\r\nContent-Type: application/octet-stream\r\n"
+                "Transfer-Encoding: chunked\r\nConnection: close\r\nSet-Cookie: PHPSESSID=qih4oh7a79k8pskhql4hn7c892; path=/\r\nExpires: Thu, 19 Nov 1981 08:52:00 GMT\r\n"
+                "Cache-Control: no-store, no-cache, must-revalidate\r\nPragma: no-cache\r\n\r\n");
 
+                l = strlen(buf);
+                buf[l] = '3';
+                buf[l+1]= '8'; //长度，51的十六进制
+                buf[l+2]= '\r'; //
+                buf[l+3]= '\n'; //
+                l += 4;
+                send_result = send( clientsoc, buf, l, 0 );
+
+                len = 56;
                 memset(buf, 0, BUFLEN);
                 memcpy(buf,&len,4);
                 
@@ -428,8 +442,19 @@ int main(int argc, char**argv)
                 memcpy(buf+15,&len,4);
                 
                 strncpy(buf+19, md5_str, 32);
+
+                len = 2016;
+                memcpy(buf+51,&len,2);
+                buf[53] = 12;
+                buf[54] = 23;
+                buf[55] = 1;
                 
-                send_result = send( clientsoc, buf, 51, 0 );
+                send_result = send( clientsoc, buf, 56, 0 );
+
+                memset(buf,0, BUFLEN);
+                sprintf(buf, "\r\n0\r\n\r\n");//结束的chunk
+                send_result = send( clientsoc, buf, 7, 0 );
+                
                 if (SOCKET_ERROR == send_result)
                 {
                     printf("Close connection\n");  
@@ -437,14 +462,18 @@ int main(int argc, char**argv)
                     break;  
                 }
             }
-            else if (0 == strncmp(buf, "DL_DATA", strlen("DL_DATA")))
+            else if (NULL != strstr(buf, "DL_DATA"))
             {
                 size_t total = 102400;
                 size_t len = 1039;
                 FILE *fp;
                 char *offset_b = strstr(buf,",");
-                size_t offset = atol(offset_b+1);
+                size_t offset = 0;
+                int l=0;
+                int chunk_len = 0;
                 
+                //offset_b = strstr(offset_b+1,",");
+                offset = atol(offset_b+1);
                 
                 fp = fopen(file_name,"rb");
                 
@@ -456,14 +485,26 @@ int main(int argc, char**argv)
                     continue;
                 }
 
-                if (total>len - offset)
-                {
-                    total = len - offset;
-                }
+                memset(buf, 0, BUFLEN);
+                strcpy(buf,"HTTP/1.1 200 OK\r\nServer: nginx/1.1.19\r\nDate: Thu, 17 Nov 2016 09:50:34 GMT\r\nContent-Type: application/octet-stream\r\n"
+                "Transfer-Encoding: chunked\r\nConnection: close\r\nSet-Cookie: PHPSESSID=qih4oh7a79k8pskhql4hn7c892; path=/\r\nExpires: Thu, 19 Nov 1981 08:52:00 GMT\r\n"
+                "Cache-Control: no-store, no-cache, must-revalidate\r\nPragma: no-cache\r\n\r\n");
+
+                l = strlen(buf);
+                send_result = send( clientsoc, buf, l, 0 );
+
+                total=len - offset;
                 total +=4;
+
+                
+                memset(buf, 0, BUFLEN);
+                chunk_len = total >= BUFLEN ? BUFLEN : total;
+                sprintf(buf,"%x\r\n",chunk_len);
+                l = strlen(buf);
+                send_result = send( clientsoc, buf, l, 0 );
+                
                 memset(buf, 0, BUFLEN);
                 memcpy(buf,&total,4);
-                
                 send_result = send( clientsoc, buf, 4, 0 );
 
                  fseek(fp,offset,SEEK_SET);  
@@ -481,10 +522,31 @@ int main(int argc, char**argv)
                         closesocket(clientsoc);  
                         break;  
                     }
+
+                    
+                    total -= readlen;
                     
                     memset(buf, 0, BUFLEN);
-                    total -= readlen;
+                    chunk_len = total >= BUFLEN ? BUFLEN : total;
+                    sprintf(buf+l,"\r\n%x\r\n",chunk_len);
+                    l = strlen(buf);
+                    send_result = send( clientsoc, buf, l, 0 );
+                    
+                    memset(buf, 0, BUFLEN);
+
+                    {
+                        int i = 0;
+
+                        while (i>0)
+                        {
+                            i++;
+                        }
+                    }
                  }
+
+                 memset(buf,0, BUFLEN);
+                 sprintf(buf, "\r\n0\r\n\r\n");//结束的chunk
+                 send_result = send( clientsoc, buf, 7, 0 );
 
                  if (len > 0)
                  {
@@ -506,6 +568,91 @@ int main(int argc, char**argv)
                     closesocket(clientsoc);  
                     break;  
                 }
+            }
+            else if (NULL != strstr(buf, "DL_HOMEPAGE"))
+            {
+                int len = 56;
+                int l=0;
+                FILE *fp;
+                
+                memset(buf, 0, BUFLEN);
+                strcpy(buf,"HTTP/1.1 200 OK\r\nServer: nginx/1.1.19\r\nDate: Thu, 17 Nov 2016 09:50:34 GMT\r\nContent-Type: application/octet-stream\r\n"
+                "Transfer-Encoding: chunked\r\nConnection: close\r\nSet-Cookie: PHPSESSID=qih4oh7a79k8pskhql4hn7c892; path=/\r\nExpires: Thu, 19 Nov 1981 08:52:00 GMT\r\n"
+                "Cache-Control: no-store, no-cache, must-revalidate\r\nPragma: no-cache\r\n\r\n");
+
+                l = strlen(buf);
+                buf[l] = '9';//长度，51的十六进制
+                buf[l+1]= '\r'; //
+                buf[l+2]= '\n'; //
+                l += 3;
+                send_result = send( clientsoc, buf, l, 0 );
+
+                len = 9;
+                memset(buf, 0, BUFLEN);
+                memcpy(buf,&len,4);
+                buf[4] = 30;
+                len = 2016;
+                memcpy(buf+5,&len,2);
+                buf[7] = 12;
+                buf[8] = 23;
+                
+                send_result = send( clientsoc, buf, 9, 0 );
+                
+                memset(buf,0, BUFLEN);
+                sprintf(buf, "\r\n0\r\n\r\n");//结束的chunk
+                send_result = send( clientsoc, buf, 7, 0 );
+                
+                if (SOCKET_ERROR == send_result)
+                {
+                    printf("Close connection\n");  
+                    closesocket(clientsoc);  
+                    break;  
+                }
+            }
+            
+            else if (0 == strncmp(buf, "DL_GET_HOST", strlen("DL_GET_HOST")))
+            {
+                int len = 36;
+                memset(buf, 0, BUFLEN);
+                memcpy(buf,&len,4);
+                strncpy(buf+4,md5_str,32);
+                
+                send_result = send( clientsoc, buf, 36, 0 );
+                if (SOCKET_ERROR == send_result)
+                {
+                    printf("Close connection\n");  
+                    closesocket(clientsoc);  
+                    break;  
+                }
+            }
+            else if (0 == strncmp(buf, "DL_UPLOAD", strlen("DL_UPLOAD")))
+            {
+                int len = 0;
+                memset(buf, 0, BUFLEN);
+                memcpy(buf,&len,4);
+                
+                send_result = send( clientsoc, buf, 4, 0 );
+                if (SOCKET_ERROR == send_result)
+                {
+                    printf("Close connection\n");  
+                    closesocket(clientsoc);  
+                    break;  
+                }
+            }
+            else
+            {
+                int l = 0;
+                
+                memset(buf, 0, BUFLEN);
+                strcpy(buf,"HTTP/1.1 200 OK\r\nServer: nginx/1.1.19\r\nDate: Thu, 17 Nov 2016 09:50:34 GMT\r\nContent-Type: application/octet-stream\r\n"
+                "Transfer-Encoding: chunked\r\nConnection: close\r\nSet-Cookie: PHPSESSID=qih4oh7a79k8pskhql4hn7c892; path=/\r\nExpires: Thu, 19 Nov 1981 08:52:00 GMT\r\n"
+                "Cache-Control: no-store, no-cache, must-revalidate\r\nPragma: no-cache\r\n<HTML><BODY>hello </BODY></HTML>");
+
+
+
+
+                l = strlen(buf);
+                send_result = send( clientsoc, buf, l, 0 );
             }
 
         }  

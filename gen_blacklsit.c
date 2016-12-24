@@ -132,11 +132,13 @@ void main(void)
     for (i=0;i<head1.total_record;i++)
     {
         record= records[i];
+        memset(record.tel, 0 ,14);
         applib_addr_string_2_bcd(records[i].tel, strlen(records[i].tel), record.tel, 14);
         fwrite(&record.tel, sizeof(record.tel), 1, fp);
         fwrite(&record.report, sizeof(record.report), 1, fp);
         fwrite(&record.tag, sizeof(record.tag), 1, fp);
     }
 
+	
     fclose(fp);
 }
