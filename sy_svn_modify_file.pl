@@ -22,6 +22,7 @@ my $tmp_file = $path.$path_separator."pick_svn_modify.txt";
 local ($current_work_root) = getcwd;
 my $make_item;
 my $src_item;
+my $is_add;
 
 $patch_path =~ s/\\/\//g;
 $patch_path =~ s/^\s+//;
@@ -48,6 +49,15 @@ foreach $item (@file_all)
 {
     if($item =~ m/^\M/ || $item =~ m/^A/)
     {
+        if ($item =~ m/^A/)
+        {
+            $is_add = 1;
+        }
+        else
+        {
+            $is_add = 0;
+        }
+        
         $item = substr($item,7);
         $item =~ s/\\/\//g;
         $item =~ s/^\s+//;
@@ -70,7 +80,10 @@ foreach $item (@file_all)
             
             if(!(-d $src_item))
             {
-                RecursiveMkdir($src_item);
+                if ($is_add == 0)
+                {
+                    RecursiveMkdir($src_item);
+                }
             }
         }
         elsif(-e $item)
@@ -83,15 +96,18 @@ foreach $item (@file_all)
             copy($item,$make_item);
 
 
-            system("svn revert $item");
-            $dir_name = dirname($src_item);
-            if(!(-d $dir_name))
+            if ($is_add == 0)
             {
-                RecursiveMkdir($dir_name);
-            }
-            copy($item,$src_item);
+                system("svn revert $item");
+                $dir_name = dirname($src_item);
+                if(!(-d $dir_name))
+                {
+                    RecursiveMkdir($dir_name);
+                }
+                copy($item,$src_item);
 
-            copy($make_item, $item);
+                copy($make_item, $item);
+            }
         }
     }
 }
